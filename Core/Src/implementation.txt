@@ -1,0 +1,6 @@
+Things to Add:
+
+	- question mark
+		- make it flash on a timer
+		- flower: shoot fire
+		- star: become invulnerable
