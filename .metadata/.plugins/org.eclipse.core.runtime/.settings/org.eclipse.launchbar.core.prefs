@@ -1,0 +1,10 @@
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/arch=x86_64
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/name=Local
+LaunchTargetManager/org.eclipse.launchbar.core.launchTargetType.local,Local/os=win32
+configDescList=org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:oled (1),org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:oled (2),org.eclipse.launchbar.core.descriptorType.default\:oled,org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:DCMI,org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:SD_Card_Test,org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:oled_ssd1306,org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:UART_TERMINAL Debug
+eclipse.preferences.version=1
+org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:DCMI/activeLaunchMode=run
+org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:DCMI/activeLaunchTarget=null\:---
+org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:SD_Card_Test/activeLaunchTarget=null\:---
+org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:oled\ (1)/activeLaunchMode=run
+org.eclipse.launchbar.core.descriptorType.default\:oled/activeLaunchTarget=org.eclipse.launchbar.core.launchTargetType.local\:Local
