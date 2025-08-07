@@ -663,7 +663,7 @@ void draw_bowser() {
 	static uint32_t flame_timer = 0;
 	static struct Object fireballs[10];
 	static fireball_final[48 * 16];
-	static flames = 10;
+	static flames = 5;
 	if (bowser_last_moved == 0) {
 		bowser_last_moved = HAL_GetTick();
 		bowser_last_updated = bowser_last_moved;
@@ -681,14 +681,14 @@ void draw_bowser() {
 	if (now - bowser_last_updated > 100) {
 		if (flames != 0) {
 			if (now - flame_timer > 1700) {
-				fireballs[10 - flames].x = bowser.x;
-				fireballs[10 - flames].y = bowser.y + 35;
-				fireballs[10 - flames].width = 48;
-				fireballs[10 - flames].height = 16;
-				fireballs[10 - flames].prev_x = bowser.x;
-				fireballs[10 - flames].prev_y = bowser.y + 35;
-				fireballs[10 - flames].frame = fireball_1;
-				fireballs[10 - flames].redraw = false;
+				fireballs[5 - flames].x = bowser.x;
+				fireballs[5 - flames].y = bowser.y + 35;
+				fireballs[5 - flames].width = 48;
+				fireballs[5 - flames].height = 16;
+				fireballs[5 - flames].prev_x = bowser.x;
+				fireballs[5 - flames].prev_y = bowser.y + 35;
+				fireballs[5 - flames].frame = fireball_1;
+				fireballs[5 - flames].redraw = false;
 				flames--;
 				flame_timer = now;
 			}
@@ -696,16 +696,16 @@ void draw_bowser() {
 		}
 		else if (prev_bowser.x >= bowser.x) {
 			prev_bowser = bowser;
-			bowser.x -= 5;
+			bowser.x -= 10;
 			if (bowser.x <= 0) {
-				bowser.x = 6;
+				bowser.x = 11;
 			}
 		} else {
 			prev_bowser = bowser;
-			bowser.x += 5;
-			if (bowser.x >= 256) {
-				bowser.x = 250;
-				flames = 10;
+			bowser.x += 10;
+			if (bowser.x >= 200) {
+				bowser.x = 189;
+				flames = 5;
 			}
 		}
 		bowser_last_updated = now;
@@ -719,7 +719,7 @@ void draw_bowser() {
 		frame = (frame == fireball_1) ? fireball_2 : fireball_1;
 		cleanMarioBackground(frame, fireball_final, 48, 16, 48 * 16);
 	}
-	for (uint8_t i = 0; i < 10 - flames; i++) {
+	for (uint8_t i = 0; i < 5 - flames; i++) {
 		// update fireball
 		// update its frame
 		if (collision_detection(mario, fireballs[i])) {
@@ -731,7 +731,7 @@ void draw_bowser() {
 		if (fireballs[i].x > 0 || fireballs[i].prev_x >= 0) {
 			fireballs[i].prev_x = fireballs[i].x;
 			fireballs[i].prev_y = fireballs[i].y;
-			fireballs[i].x -= 10;
+			fireballs[i].x -= 20;
 
 			ILI9341_FillRectangle(fireballs[i].prev_x, fireballs[i].prev_y, fireballs[i].width, fireballs[i].height, ILI9341_CYAN);
 			ILI9341_DrawImage(fireballs[i].x, fireballs[i].y, fireballs[i].width, fireballs[i].height, fireball_final);
@@ -743,7 +743,6 @@ void draw_bowser() {
 	if (bowser.x > prev_bowser.x) {
 		ILI9341_FillRectangle(prev_bowser.x, prev_bowser.y, bowser.x - prev_bowser.x, prev_bowser.height, ILI9341_CYAN);
 		turn_enemy(bowser.width, bowser.height, bowser_final, bowser);
-		ILI9341_FillRectangle(bowser.x + bowser.width, prev_bowser.y, prev_bowser.x + prev_bowser.width - (bowser.x + bowser.width), prev_bowser.height, ILI9341_RED);
 	} else if (prev_bowser.x > bowser.x) {
 		ILI9341_FillRectangle(bowser.x + bowser.width, prev_bowser.y, prev_bowser.x + prev_bowser.width - (bowser.x + bowser.width), prev_bowser.height, ILI9341_CYAN);
 	}
