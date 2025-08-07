@@ -87,7 +87,7 @@ static void MX_TIM4_Init(void);
 //
 //}
 bool print_once = false;
-
+uint8_t mario_lives = 3;
 
 struct Character {
 	int16_t x;
@@ -112,6 +112,7 @@ struct Enemy {
 	bool dir;
 	bool died;
 	bool active;
+	uint8_t health;
 };
 
 
@@ -145,8 +146,8 @@ bool dir = false;
 struct Character prev_mario = { 80, 176, 26, 32, 0, 0, 0 };
 struct Character mario = { 80, 176, 26, 32, 0, 0, 0 };
 
-struct Enemy prev_bowser = { 240, 144, 64, 64, 0, 0, 80, 200, 0, false, true};
-struct Enemy bowser = { 240, 144, 64, 64, 0, 0, 80, 200, 0, false, false, true};
+struct Enemy prev_bowser = { 212, 144, 64, 64, 0, 0, 80, 200, 0, false, true};
+struct Enemy bowser = { 212, 144, 64, 64, 0, 0, 80, 160, 200, 0, false, true, 50};
 
 //struct Enemy prev_donkey = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
 //struct Enemy donkey = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
@@ -264,24 +265,18 @@ void turn_mario(uint8_t width, uint8_t height) {
 }
 
 void turn_enemy(uint8_t width, uint8_t height, uint16_t* enemy_final, struct Enemy enemy) {
-	if (enemy.x_distance_between_frame < 0 || (enemy.x_distance_between_frame == 0 && dir == true)) {
-        for (int row = 0; row < height; row++) {
-            for (int col = 0; col < width / 2; col++) {
-                int left  = row * width + col;
-                int right = row * width + (width - 1 - col);
+	for (int row = 0; row < height; row++) {
+		for (int col = 0; col < width / 2; col++) {
+			int left  = row * width + col;
+			int right = row * width + (width - 1 - col);
 
-                // Swap 16-bit pixels
-                uint16_t temp = enemy_final[left];
-                enemy_final[left] = enemy_final[right];
-                enemy_final[right] = temp;
-            }
-        }
+			// Swap 16-bit pixels
+			uint16_t temp = enemy_final[left];
+			enemy_final[left] = enemy_final[right];
+			enemy_final[right] = temp;
+		}
+	}
 
-		dir = true;
-	}
-	else if (enemy.x_distance_between_frame > 0){
-		dir = false;
-	}
 
 }
 
@@ -319,6 +314,9 @@ bool collision_detection(struct Character mario, struct Object object) {
 
 bool collision_detection_enemies() {
 
+	static uint32_t mario_last_hit = 0;
+	if (mario_last_hit == 0)
+		mario_last_hit = HAL_GetTick();
 	for (int i = 0; i < 1; i++) {
 //
 //	int16_t x;
@@ -336,7 +334,14 @@ bool collision_detection_enemies() {
 		if (enemies[i]->died || !collision_detection(mario,enemy_object))
 			continue;
 
+		uint32_t now = HAL_GetTick();
 
+		if (now - mario_last_hit  > 1000) {
+			mario_lives--;
+			mario_last_hit = now;
+		}
+		// renders rest of function obsolete for now
+//		return;
 		// Landing from above (moving downward)
 		if (mario.y_velocity > 0 &&
 			prev_mario.y + prev_mario.height <= enemies[i]->y) {
@@ -573,7 +578,7 @@ void draw_map_1() {
 
 	objects[10].x = 160;
 	objects[10].prev_x = 160;
-	objects[10].y = 126;
+	objects[10].y = 100;
 	objects[10].prev_y = 160;
 	objects[10].width = 32;
 	objects[10].height = 32;
@@ -581,21 +586,48 @@ void draw_map_1() {
 	objects[10].collidable = true;
 	objects[10].redraw = false;
 
-	objects[15].x = 230;
-	objects[15].prev_x = 230;
-	objects[15].y = 40;
-	objects[15].prev_y = 230;
-	objects[15].width = 64;
-	objects[15].height = 48;
-	objects[15].frame = cloud;
-	objects[15].collidable = false;
-	objects[15].redraw = false;
+
+	objects[11].x = 128;
+	objects[11].prev_x = 160;
+	objects[11].y = 100;
+	objects[11].prev_y = 160;
+	objects[11].width = 32;
+	objects[11].height = 32;
+	objects[11].frame = brick;
+	objects[11].collidable = true;
+	objects[11].redraw = false;
+
+	objects[12].x = 230;
+	objects[12].prev_x = 230;
+	objects[12].y = 40;
+	objects[12].prev_y = 230;
+	objects[12].width = 64;
+	objects[12].height = 48;
+	objects[12].frame = cloud;
+	objects[12].collidable = false;
+	objects[12].redraw = false;
 
 
-	for (int i = 10; i < 16; i++)
+	objects[13].x = 256;
+	objects[13].prev_x = 256;
+	objects[13].y = 144;
+	objects[13].prev_y = 144;
+	objects[13].width = 64;
+	objects[13].height = 64;
+	objects[13].frame = pipe;
+	objects[13].collidable = true;
+	objects[13].redraw = false;
+
+
+	uint16_t pipe_final[64*64];
+
+	cleanMarioBackground(pipe, pipe_final, 64, 64, 64*64);
+
+	for (int i = 10; i < 13; i++)
 		ILI9341_DrawImage(objects[i].x, objects[i].y, objects[i].width, objects[i].height, objects[i].frame);
 
-	num_objects = 16;
+	ILI9341_DrawImage(objects[13].x, objects[13].y, objects[13].width, objects[13].height, pipe_final);
+	num_objects = 15;
 
 
 //		// Test SPI communication first
@@ -623,21 +655,101 @@ void draw_map_1() {
 
 }
 
+
 void draw_bowser() {
+	static uint32_t bowser_last_moved = 0;
+	static uint32_t bowser_last_updated = 0;
+	static uint32_t mario_last_hit = 0;
+	static uint32_t flame_timer = 0;
+	static struct Object fireballs[10];
+	static fireball_final[48 * 16];
+	static flames = 10;
+	if (bowser_last_moved == 0) {
+		bowser_last_moved = HAL_GetTick();
+		bowser_last_updated = bowser_last_moved;
+		flame_timer = bowser_last_moved;
+		mario_last_hit = flame_timer;
+	}
 	static uint8_t frame_num = 0;
 	static uint16_t* frames[4] = { bowser_1, bowser_2, bowser_3, bowser_4 };
 	if (frame_num > 3)
 		frame_num = 0;
 	uint16_t* bowser_frame =  frames[frame_num];
 
-	ILI9341_FillRectangle(prev_bowser.x, prev_bowser.y, prev_bowser.width, prev_bowser.height, ILI9341_CYAN);
-	cleanMarioBackground(bowser_frame, bowser_final, 64, 64, 64*64);
-	if (bowser.x > prev_bowser.x) {
-		turn_enemy(bowser.width, bowser.height, bowser_final, bowser);
+	uint32_t now = HAL_GetTick();
+
+	if (now - bowser_last_updated > 100) {
+		if (flames != 0) {
+			if (now - flame_timer > 1700) {
+				fireballs[10 - flames].x = bowser.x;
+				fireballs[10 - flames].y = bowser.y + 35;
+				fireballs[10 - flames].width = 48;
+				fireballs[10 - flames].height = 16;
+				fireballs[10 - flames].prev_x = bowser.x;
+				fireballs[10 - flames].prev_y = bowser.y + 35;
+				fireballs[10 - flames].frame = fireball_1;
+				fireballs[10 - flames].redraw = false;
+				flames--;
+				flame_timer = now;
+			}
+
+		}
+		else if (prev_bowser.x >= bowser.x) {
+			prev_bowser = bowser;
+			bowser.x -= 5;
+			if (bowser.x <= 0) {
+				bowser.x = 6;
+			}
+		} else {
+			prev_bowser = bowser;
+			bowser.x += 5;
+			if (bowser.x >= 256) {
+				bowser.x = 250;
+				flames = 10;
+			}
+		}
+		bowser_last_updated = now;
+	}
+	if (now - bowser_last_moved > 300) {
+		frame_num++;
+		bowser_last_moved = now;
+	}
+	uint16_t* frame = fireball_2;
+	if (10 - flames) {
+		frame = (frame == fireball_1) ? fireball_2 : fireball_1;
+		cleanMarioBackground(frame, fireball_final, 48, 16, 48 * 16);
+	}
+	for (uint8_t i = 0; i < 10 - flames; i++) {
+		// update fireball
+		// update its frame
+		if (collision_detection(mario, fireballs[i])) {
+			if (now - mario_last_hit > 1000) {
+				mario_lives--;
+				mario_last_hit = now;
+			}
+		}
+		if (fireballs[i].x > 0 || fireballs[i].prev_x >= 0) {
+			fireballs[i].prev_x = fireballs[i].x;
+			fireballs[i].prev_y = fireballs[i].y;
+			fireballs[i].x -= 10;
+
+			ILI9341_FillRectangle(fireballs[i].prev_x, fireballs[i].prev_y, fireballs[i].width, fireballs[i].height, ILI9341_CYAN);
+			ILI9341_DrawImage(fireballs[i].x, fireballs[i].y, fireballs[i].width, fireballs[i].height, fireball_final);
+		}
 	}
 
+
+	cleanMarioBackground(bowser_frame, bowser_final, 64, 64, 64*64);
+	if (bowser.x > prev_bowser.x) {
+		ILI9341_FillRectangle(prev_bowser.x, prev_bowser.y, bowser.x - prev_bowser.x, prev_bowser.height, ILI9341_CYAN);
+		turn_enemy(bowser.width, bowser.height, bowser_final, bowser);
+		ILI9341_FillRectangle(bowser.x + bowser.width, prev_bowser.y, prev_bowser.x + prev_bowser.width - (bowser.x + bowser.width), prev_bowser.height, ILI9341_RED);
+	} else if (prev_bowser.x > bowser.x) {
+		ILI9341_FillRectangle(bowser.x + bowser.width, prev_bowser.y, prev_bowser.x + prev_bowser.width - (bowser.x + bowser.width), prev_bowser.height, ILI9341_CYAN);
+	}
+
+
 	ILI9341_DrawImage(bowser.x, bowser.y, bowser.width, bowser.height, bowser_final);
-	frame_num++;
 }
 
 void drawScene(uint8_t map_num) {
@@ -922,7 +1034,6 @@ int main(void)
 //				}
 //			}
 			ILI9341_DrawImage(mario.x, mario.y, mario.width, mario.height, mario_final);
-			draw_bowser();
 	//		ILI9341_DrawImage(mario.x, mario.y, mario.width, mario.height, frame);
 		}
 
@@ -936,6 +1047,10 @@ int main(void)
 		prev_mario = mario;
 		mario.x_distance_between_frame = 0;
 		walk_tick = now;
+		char msg[32];
+		snprintf(msg, sizeof(msg), "Lives: %d", mario_lives);
+		ILI9341_WriteString(10, 10, msg, Font_11x18, ILI9341_BLACK, ILI9341_CYAN);
+		draw_bowser();
 	}
 
 	frame_count++;
