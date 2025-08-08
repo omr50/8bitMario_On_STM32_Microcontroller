@@ -97,6 +97,7 @@ struct Character {
 	int16_t x_distance_between_frame;
 	int16_t y_distance_between_frame;
 	float y_velocity;
+	bool redraw;
 };
 
 struct Enemy {
@@ -143,20 +144,20 @@ bool moved = false;
 bool idle = false;
 bool dir = false;
 
-struct Character prev_mario = { 80, 176, 26, 32, 0, 0, 0 };
-struct Character mario = { 80, 176, 26, 32, 0, 0, 0 };
+struct Character prev_mario = { 80, 176, 26, 32, 0, 0, 0, false };
+struct Character mario = { 80, 176, 26, 32, 0, 0, 0, false };
 
-struct Enemy prev_bowser = { 212, 144, 64, 64, 0, 0, 80, 200, 0, false, true};
-struct Enemy bowser = { 212, 144, 64, 64, 0, 0, 80, 160, 200, 0, false, true, 50};
+struct Enemy prev_bowser = { 180, 144, 64, 64, 0, 0, 80, 200, 0, false, true};
+struct Enemy bowser = { 180, 144, 64, 64, 0, 0, 80, 160, 200, 0, false, true, 50};
 
-//struct Enemy prev_donkey = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
-//struct Enemy donkey = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
+struct Enemy prev_goomba = { 180, 54, 32, 32, 0, 0, 80, 200, 0, false, false};
+struct Enemy goomba = { 180, 64, 32, 32, 0, 0, 120, 160, 0, false, false };
 //struct Enemy prev_bowser = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
 //struct Enemy bowser = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
 //
 //
 //struct Enemy* enemies[3] = { &goomba, &donkey, &bowser };
-struct Enemy* enemies[3] = { &bowser };
+struct Enemy* enemies[3] = { &bowser, &goomba };
 
 unsigned char audio_buff[BUFF_SIZE];
 unsigned char yahoo_buff[BUFF_SIZE];
@@ -317,7 +318,7 @@ bool collision_detection_enemies() {
 	static uint32_t mario_last_hit = 0;
 	if (mario_last_hit == 0)
 		mario_last_hit = HAL_GetTick();
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < 2; i++) {
 //
 //	int16_t x;
 //	int16_t y;
@@ -335,6 +336,7 @@ bool collision_detection_enemies() {
 			continue;
 
 		uint32_t now = HAL_GetTick();
+		mario.redraw = true;
 
 		if (now - mario_last_hit  > 1000) {
 			mario_lives--;
@@ -348,7 +350,11 @@ bool collision_detection_enemies() {
 
 			mario.y = enemies[i]->y - mario.height - 40;
 			if (i == 0) {
+				mario.y_velocity = -100;
+			} else if (i == 1) {
 				enemies[i]->died = true;
+				// undo the minus life from before
+				mario_lives++;
 			}
 			return true;
 		}
@@ -371,6 +377,15 @@ bool collision_detection_enemies() {
 			mario.x = enemies[i]->x + enemies[i]->width;
 			mario.x_distance_between_frame = 0;
 			return true;
+		}
+		else if (i == 0 || i == 1) {
+			struct Enemy prev_enemy = (i == 0) ? prev_bowser : prev_goomba;
+			if (enemies[i]->x >= prev_enemy.x) {
+				mario.x = enemies[i]->x + enemies[i]->width;
+			}
+			else {
+				mario.x = enemies[i]->x - enemies[i]->width;
+			}
 		}
 	}
 
@@ -586,9 +601,8 @@ void draw_map_1() {
 	objects[10].collidable = true;
 	objects[10].redraw = false;
 
-
 	objects[11].x = 128;
-	objects[11].prev_x = 160;
+	objects[11].prev_x = 128;
 	objects[11].y = 100;
 	objects[11].prev_y = 160;
 	objects[11].width = 32;
@@ -597,36 +611,46 @@ void draw_map_1() {
 	objects[11].collidable = true;
 	objects[11].redraw = false;
 
-	objects[12].x = 230;
-	objects[12].prev_x = 230;
-	objects[12].y = 40;
-	objects[12].prev_y = 230;
-	objects[12].width = 64;
-	objects[12].height = 48;
-	objects[12].frame = cloud;
-	objects[12].collidable = false;
+	objects[12].x = 96;
+	objects[12].prev_x = 96;
+	objects[12].y = 100;
+	objects[12].prev_y = 160;
+	objects[12].width = 32;
+	objects[12].height = 32;
+	objects[12].frame = brick;
+	objects[12].collidable = true;
 	objects[12].redraw = false;
 
-
-	objects[13].x = 256;
-	objects[13].prev_x = 256;
-	objects[13].y = 144;
-	objects[13].prev_y = 144;
+	objects[13].x = 10;
+	objects[13].prev_x = 10;
+	objects[13].y = 40;
+	objects[13].prev_y = 230;
 	objects[13].width = 64;
-	objects[13].height = 64;
-	objects[13].frame = pipe;
-	objects[13].collidable = true;
+	objects[13].height = 48;
+	objects[13].frame = cloud;
+	objects[13].collidable = false;
 	objects[13].redraw = false;
+
+
+	objects[14].x = 256;
+	objects[14].prev_x = 256;
+	objects[14].y = 144;
+	objects[14].prev_y = 144;
+	objects[14].width = 64;
+	objects[14].height = 64;
+	objects[14].frame = pipe;
+	objects[14].collidable = true;
+	objects[14].redraw = false;
 
 
 	uint16_t pipe_final[64*64];
 
 	cleanMarioBackground(pipe, pipe_final, 64, 64, 64*64);
 
-	for (int i = 10; i < 13; i++)
+	for (int i = 10; i < 14; i++)
 		ILI9341_DrawImage(objects[i].x, objects[i].y, objects[i].width, objects[i].height, objects[i].frame);
 
-	ILI9341_DrawImage(objects[13].x, objects[13].y, objects[13].width, objects[13].height, pipe_final);
+	ILI9341_DrawImage(objects[14].x, objects[14].y, objects[14].width, objects[14].height, pipe_final);
 	num_objects = 15;
 
 
@@ -703,8 +727,8 @@ void draw_bowser() {
 		} else {
 			prev_bowser = bowser;
 			bowser.x += 10;
-			if (bowser.x >= 200) {
-				bowser.x = 189;
+			if (bowser.x >= 190) {
+				bowser.x = 180;
 				flames = 5;
 			}
 		}
@@ -714,7 +738,7 @@ void draw_bowser() {
 		frame_num++;
 		bowser_last_moved = now;
 	}
-	uint16_t* frame = fireball_2;
+	static uint16_t* frame = fireball_2;
 	if (10 - flames) {
 		frame = (frame == fireball_1) ? fireball_2 : fireball_1;
 		cleanMarioBackground(frame, fireball_final, 48, 16, 48 * 16);
@@ -725,6 +749,7 @@ void draw_bowser() {
 		if (collision_detection(mario, fireballs[i])) {
 			if (now - mario_last_hit > 1000) {
 				mario_lives--;
+				mario.redraw = true;
 				mario_last_hit = now;
 			}
 		}
@@ -748,7 +773,65 @@ void draw_bowser() {
 	}
 
 
+	static uint8_t bowser_health = 0;
+	struct Character goomba_char = {goomba.x, goomba.y, goomba.width, goomba.height};
+	struct Object health_char = {198, 8, 0, 0, 2 * bowser.health + 4, 14};
+	static bool prev_collision = false;
+	bool current_collision = collision_detection(goomba_char, health_char);
+	if (bowser_health != bowser.health || prev_collision || current_collision) {
+		// bowser health
+		ILI9341_FillRectangle(198, 8, 2 * bowser.health + 4, 14, ILI9341_CYAN);
+		ILI9341_FillRectangle(198, 8, 2 * bowser.health + 4, 14, ILI9341_BLACK);
+		ILI9341_FillRectangle(200, 10, 2 * bowser.health, 10, ILI9341_RED);
+		bowser_health = bowser.health;
+		prev_collision = current_collision;
+	}
+
 	ILI9341_DrawImage(bowser.x, bowser.y, bowser.width, bowser.height, bowser_final);
+}
+
+void draw_goomba() {
+
+	static goomba_final[32 * 32];
+	static uint16_t* frame = goomba_2;
+	static bool jump = false;
+	static int16_t velocity = -43;
+	frame = (frame == goomba_1) ? goomba_2: goomba_1;
+
+	if (goomba.x == 272 && goomba.y == 112) {
+		jump = true;
+		velocity = -43;
+	}
+
+	if (jump) {
+		prev_goomba = goomba;
+		goomba.y += velocity;
+		velocity -= (velocity / 3 - 2);
+		goomba.x -= 7;
+		if (velocity > 0 && goomba.y > 64) {
+			jump = false;
+			goomba.x = 160;
+			goomba.y = 64;
+		}
+	}
+	else if (prev_goomba.x >= goomba.x) {
+			prev_goomba = goomba;
+			goomba.x -= 5;
+			if (goomba.x <= 90) {
+				goomba.x = 96;
+			}
+		} else {
+			prev_goomba = goomba;
+			goomba.x += 5;
+			if (goomba.x >= 160) {
+				goomba.x = 154;
+			}
+	}
+
+	cleanMarioBackground(frame, goomba_final, 32, 32, 32*32);
+	ILI9341_FillRectangle(prev_goomba.x, prev_goomba.y, prev_goomba.width, prev_goomba.height, ILI9341_CYAN);
+	ILI9341_DrawImage(goomba.x, goomba.y, goomba.width, goomba.height, goomba_final);
+
 }
 
 void drawScene(uint8_t map_num) {
@@ -1001,8 +1084,14 @@ int main(void)
 		bool touching_ground = isTouchingGround();
 		// if mario isn't idle or he is but its the first frame where he is idle, then draw
 		// otherwise skip to optimize speed.
-		if (frame != mario_idle || (frame == mario_idle && !idle)) {
+		if (frame != mario_idle || (frame == mario_idle && !idle) || mario.redraw) {
+			static uint8_t redraw_frames = 10;
+			redraw_frames--;
 
+			if (redraw_frames == 0) {
+				mario.redraw = false;
+				redraw_frames = 10;
+			}
 			if (!idle && frame == mario_idle) {
 				// prevent another print while he's idle
 				idle = true;
@@ -1050,6 +1139,15 @@ int main(void)
 		snprintf(msg, sizeof(msg), "Lives: %d", mario_lives);
 		ILI9341_WriteString(10, 10, msg, Font_11x18, ILI9341_BLACK, ILI9341_CYAN);
 		draw_bowser();
+		if (!goomba.died) {
+			draw_goomba();
+		} else {
+			ILI9341_FillRectangle(goomba.x, goomba.y, goomba.width, goomba.height, ILI9341_CYAN);
+			goomba.died = false;
+			prev_goomba = goomba;
+			goomba.x = 272;
+			goomba.y = 112;
+		}
 	}
 
 	frame_count++;
@@ -1085,7 +1183,10 @@ int main(void)
 			// Button is held down - move the character
 		   is_jumping = true;
 		   jump_timer = HAL_GetTick();
-		   mario.y_velocity = (mario.y_velocity) ? mario.y_velocity : -350;
+		   mario.y_velocity = (mario.y_velocity) ? mario.y_velocity : -450;
+		   if (mario.y < 120 && mario.y_velocity == -450) {
+			  mario.y_velocity = -285;
+		   }
 		   move_tick = now;
 		}
 		read_pin_tick = now;
