@@ -341,9 +341,10 @@ bool collision_detection_enemies() {
 
 		uint32_t now = HAL_GetTick();
 		mario.redraw = true;
-
+		static bool hit = false;
 		if (now - mario_last_hit  > 1000) {
 			mario_lives--;
+			hit = true;
 			mario_last_hit = now;
 		}
 		// renders rest of function obsolete for now
@@ -355,11 +356,20 @@ bool collision_detection_enemies() {
 			mario.y = enemies[i]->y - mario.height - 40;
 			if (i == 0) {
 				mario.y_velocity = -100;
+				// undo the minus life from before
+				if (hit) {
+					mario_lives++;
+					hit = false;
+				}
 			} else if (i == 1) {
 				enemies[i]->died = true;
 				// undo the minus life from before
-				mario_lives++;
+				if (hit) {
+					mario_lives++;
+					hit = false;
+				}
 			}
+			hit = false;
 			return true;
 		}
 		// Hit head from below (moving upward)
@@ -368,21 +378,25 @@ bool collision_detection_enemies() {
 
 			mario.y = enemies[i]->y + enemies[i]->height;
 			mario.y_velocity = 0.1;  // Start falling
+			hit = false;
 			return true;
 		}
 		// Hit from left
 		else if (prev_mario.x + prev_mario.width <= enemies[i]->x) {
 			mario.x = enemies[i]->x - mario.width;
 			mario.x_distance_between_frame = 0;
+			hit = false;
 			return true;
 		}
 		// Hit from right
 		else if (prev_mario.x >= enemies[i]->x + enemies[i]->width) {
 			mario.x = enemies[i]->x + enemies[i]->width;
 			mario.x_distance_between_frame = 0;
+			hit = false;
 			return true;
 		}
 		else if (i == 0 || i == 1) {
+			hit = false;
 			struct Enemy prev_enemy = (i == 0) ? prev_bowser : prev_goomba;
 			if (enemies[i]->x >= prev_enemy.x) {
 				mario.x = enemies[i]->x + enemies[i]->width;
@@ -690,8 +704,13 @@ void draw_bowser() {
 	static uint32_t mario_last_hit = 0;
 	static uint32_t flame_timer = 0;
 	static struct Object fireballs[10];
-	static fireball_final[48 * 16];
-	static flames = 3;
+	static bool bowser_dead = false;
+	static uint16_t fireball_final[48 * 16];
+	static int8_t flames = 3;
+
+	if (bowser_dead)
+		return;
+
 	if (bowser_last_moved == 0) {
 		bowser_last_moved = HAL_GetTick();
 		bowser_last_updated = bowser_last_moved;
@@ -781,19 +800,30 @@ void draw_bowser() {
 
 	static uint8_t bowser_health = 0;
 	struct Character goomba_char = {goomba.x, goomba.y, goomba.width, goomba.height};
-	struct Object health_char = {198, 8, 0, 0, 2 * bowser.health + 4, 14};
+	static const uint8_t bowser_max_health = 50;
+	struct Object health_char = {198, 8, 0, 0, 2 * bowser_max_health + 4, 14};
 	static bool prev_collision = false;
-	bool current_collision = collision_detection(goomba_char, health_char);
+	bool current_collision = collision_detection(goomba_char, health_char) || collision_detection(mario, health_char);
 	if (bowser_health != bowser.health || prev_collision || current_collision) {
 		// bowser health
-		ILI9341_FillRectangle(198, 8, 2 * bowser.health + 4, 14, ILI9341_CYAN);
-		ILI9341_FillRectangle(198, 8, 2 * bowser.health + 4, 14, ILI9341_BLACK);
+		ILI9341_FillRectangle(198, 8, 2 * 50 + 4, 14, ILI9341_CYAN);
+		ILI9341_FillRectangle(198, 8, 2 * bowser_max_health + 4, 14, ILI9341_BLACK);
+		ILI9341_FillRectangle(199, 9, 2 * 50 + 2, 12, ILI9341_WHITE);
 		ILI9341_FillRectangle(200, 10, 2 * bowser.health, 10, ILI9341_RED);
 		bowser_health = bowser.health;
 		prev_collision = current_collision;
 	}
 
 	ILI9341_DrawImage(bowser.x, bowser.y, bowser.width, bowser.height, bowser_final);
+
+	if (bowser.died) {
+		if (!bowser_dead) {
+			bowser_dead = true;
+			ILI9341_FillRectangle(prev_bowser.x - 10, prev_bowser.y, prev_bowser.width + 20, prev_bowser.height, ILI9341_CYAN);
+			ILI9341_FillRectangle(198, 8, 2 * 50 + 4, 14, ILI9341_CYAN);
+		}
+		return;
+	}
 }
 
 void draw_goomba() {
@@ -842,33 +872,60 @@ void draw_goomba() {
 
 
 void draw_mario_fireball() {
-	static int8_t dir = -1;
+	static int8_t distance = -1;
 
-	if (dir == -1 && mario.x < prev_mario.x) {
-		dir = -5;
-	} else if (dir == -1 && mario.x >= prev_mario.x) {
-		dir = 5;
+	if (distance == -1) {
+		if (mario.x_distance_between_frame < 0 || (mario.x_distance_between_frame == 0 && dir == true)) {
+			fireball.x = mario.x - 16;
+			distance = -15;
+		} else {
+			distance = 15;
+		}
 	}
-	fireball.x += dir;
+
+	fireball.prev_x = fireball.x;
+	fireball.prev_y = fireball.y;
+	fireball.x += distance;
 	struct Character goomba_char = {goomba.x, goomba.y, goomba.width, goomba.height};
 	struct Character bowser_char = {bowser.x, bowser.y, bowser.width, bowser.height};
-	bool bowser_hit, goomba_hit;
-	if ((bowser_hit = collision_detection(bowser_char, fireball)) || (goomba_hit = collision_detection(goomba_char, fireball))) {
+	bool bowser_hit = collision_detection(bowser_char, fireball);
+	bool goomba_hit = collision_detection(goomba_char, fireball) && !goomba.died;
+	bool object_hit = false;
+	static bool drawn = false;
+
+	for (int i = 0; i < num_objects; i++) {
+		struct Character object_char = { objects[i].x, objects[i].y, objects[i].width, objects[i].height };
+		if (collision_detection(object_char, fireball)) {
+			object_hit = true;
+		}
+	}
+
+
+
+	if (bowser_hit || goomba_hit || object_hit) {
 		fireball.redraw = false;
-		dir = -1;
+		distance = -1;
+
 		if (bowser_hit) {
-			bowser.health -= 5;
-			fireball.redraw = false;
+			bowser.health -= 2;
+			if (bowser.health <= 0)
+				bowser.died = true;
 		}
 		if (goomba_hit) {
 			goomba.died = true;
-			fireball.redraw = false;
+		}
+		// clear the last drawn image
+		if (drawn) {
+			ILI9341_FillRectangle(fireball.prev_x, fireball.prev_y, fireball.width, fireball.height, ILI9341_CYAN);
+			drawn = false;
 		}
 	}
 
 	if (fireball.x < 0 || fireball.x > 303) {
 		fireball.redraw = false;
-		dir = -1;
+		ILI9341_FillRectangle(fireball.prev_x, fireball.prev_y, fireball.width, fireball.height, ILI9341_CYAN);
+		distance = -1;
+		drawn = false;
 	}
 
 	static uint16_t* frame;
@@ -884,12 +941,16 @@ void draw_mario_fireball() {
 	else if (mario_fire_frame == 3) {
 		frame = mario_fire_4;
 	}
+	if (fireball.redraw) {
+		drawn = true;
+		cleanMarioBackground(frame, mario_fire_final, 16, 16, 16*16);
+		ILI9341_FillRectangle(fireball.prev_x, fireball.prev_y, fireball.width, fireball.height, ILI9341_CYAN);
+		ILI9341_DrawImage(fireball.x, fireball.y, fireball.width, fireball.height, mario_fire_final);
+		mario_fire_frame++;
+		if (mario_fire_frame > 3)
+			mario_fire_frame = 0;
+	}
 
-	cleanMarioBackground(frame, mario_fire_final, 16, 16, 16*16);
-	ILI9341_DrawImage(fireball.x, fireball.y, fireball.width, fireball.height, mario_fire_final);
-	mario_fire_frame++;
-	if (mario_fire_frame > 3)
-		mario_fire_frame = 0;
 }
 
 void drawScene(uint8_t map_num) {
@@ -979,6 +1040,7 @@ int main(void)
 
   uint32_t now = HAL_GetTick();
   uint32_t frame_count = 0;
+  bool game_over = false;
 
 //  hard_reset_system();
   HAL_Delay(50);
@@ -1045,6 +1107,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	if (mario_lives == 0) {
+		if (!game_over) {
+			game_over = true;
+			ILI9341_FillScreen(ILI9341_BLACK);
+			ILI9341_WriteString(80, 100, "Game Over!", Font_16x26, ILI9341_WHITE, ILI9341_BLACK);
+		}
+		HAL_Delay(1000);
+		continue;
+	}
     if (mario.x < 0) mario.x = 0;
     if (mario.x > 320 - mario.width) mario.x = 320 - mario.width;
 	uint32_t now = HAL_GetTick();
@@ -1202,7 +1273,6 @@ int main(void)
 		char msg[32];
 		snprintf(msg, sizeof(msg), "Lives: %d", mario_lives);
 		ILI9341_WriteString(10, 10, msg, Font_11x18, ILI9341_BLACK, ILI9341_CYAN);
-		draw_bowser();
 		if (!goomba.died) {
 			draw_goomba();
 		} else {
@@ -1222,6 +1292,7 @@ int main(void)
 			}
 		}
 
+		draw_bowser();
 
 	}
 
@@ -1270,7 +1341,7 @@ int main(void)
 			if (!fireball.redraw) {
 				fireball.redraw = true;
 				fireball.x = mario.x + mario.width;
-				fireball.y = mario.y + 16;
+				fireball.y = mario.y + 5;
 				mario_fire_frame = 0;
 			}
 		}
