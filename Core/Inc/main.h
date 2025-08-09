@@ -83,6 +83,8 @@ void Error_Handler(void);
 #define LEFT_BUTTON_GPIO_Port GPIOA
 #define SD_Power_Pin GPIO_PIN_11
 #define SD_Power_GPIO_Port GPIOA
+#define FIRE_BUTTON_Pin GPIO_PIN_12
+#define FIRE_BUTTON_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 #define SD_SPI_HANDLE hspi2

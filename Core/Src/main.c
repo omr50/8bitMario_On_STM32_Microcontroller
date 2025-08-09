@@ -152,6 +152,10 @@ struct Enemy bowser = { 180, 144, 64, 64, 0, 0, 80, 160, 200, 0, false, true, 50
 
 struct Enemy prev_goomba = { 180, 54, 32, 32, 0, 0, 80, 200, 0, false, false};
 struct Enemy goomba = { 180, 64, 32, 32, 0, 0, 120, 160, 0, false, false };
+
+struct Object fireball = { 0, 0, 0, 0, 16, 16, mario_fire_1, false, false };
+uint16_t mario_fire_final[16*16];
+uint8_t mario_fire_frame = 0;
 //struct Enemy prev_bowser = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
 //struct Enemy bowser = { 280, 176, 32, 32, 0, 0, 80, 200, 0, false, true};
 //
@@ -687,7 +691,7 @@ void draw_bowser() {
 	static uint32_t flame_timer = 0;
 	static struct Object fireballs[10];
 	static fireball_final[48 * 16];
-	static flames = 5;
+	static flames = 3;
 	if (bowser_last_moved == 0) {
 		bowser_last_moved = HAL_GetTick();
 		bowser_last_updated = bowser_last_moved;
@@ -705,14 +709,14 @@ void draw_bowser() {
 	if (now - bowser_last_updated > 100) {
 		if (flames != 0) {
 			if (now - flame_timer > 1700) {
-				fireballs[5 - flames].x = bowser.x;
-				fireballs[5 - flames].y = bowser.y + 35;
-				fireballs[5 - flames].width = 48;
-				fireballs[5 - flames].height = 16;
-				fireballs[5 - flames].prev_x = bowser.x;
-				fireballs[5 - flames].prev_y = bowser.y + 35;
-				fireballs[5 - flames].frame = fireball_1;
-				fireballs[5 - flames].redraw = false;
+				fireballs[3 - flames].x = bowser.x;
+				fireballs[3 - flames].y = bowser.y + 35;
+				fireballs[3 - flames].width = 48;
+				fireballs[3 - flames].height = 16;
+				fireballs[3 - flames].prev_x = bowser.x;
+				fireballs[3 - flames].prev_y = bowser.y + 35;
+				fireballs[3 - flames].frame = fireball_1;
+				fireballs[3 - flames].redraw = true;
 				flames--;
 				flame_timer = now;
 			}
@@ -729,7 +733,7 @@ void draw_bowser() {
 			bowser.x += 10;
 			if (bowser.x >= 190) {
 				bowser.x = 180;
-				flames = 5;
+				flames = 3;
 			}
 		}
 		bowser_last_updated = now;
@@ -739,26 +743,28 @@ void draw_bowser() {
 		bowser_last_moved = now;
 	}
 	static uint16_t* frame = fireball_2;
-	if (10 - flames) {
+	if (3 - flames) {
 		frame = (frame == fireball_1) ? fireball_2 : fireball_1;
 		cleanMarioBackground(frame, fireball_final, 48, 16, 48 * 16);
 	}
-	for (uint8_t i = 0; i < 5 - flames; i++) {
+	for (uint8_t i = 0; i < 3 - flames; i++) {
 		// update fireball
 		// update its frame
+		fireballs[i].x -= 20;
 		if (collision_detection(mario, fireballs[i])) {
 			if (now - mario_last_hit > 1000) {
 				mario_lives--;
 				mario.redraw = true;
 				mario_last_hit = now;
 			}
+			fireballs[i].redraw = false;
+			ILI9341_FillRectangle(fireballs[i].prev_x, fireballs[i].prev_y, fireballs[i].width, fireballs[i].height, ILI9341_CYAN);
 		}
-		if (fireballs[i].x > 0 || fireballs[i].prev_x >= 0) {
-			fireballs[i].prev_x = fireballs[i].x;
-			fireballs[i].prev_y = fireballs[i].y;
-			fireballs[i].x -= 20;
+		if (fireballs[i].redraw && (fireballs[i].x > 0 || fireballs[i].prev_x >= 0)) {
 
 			ILI9341_FillRectangle(fireballs[i].prev_x, fireballs[i].prev_y, fireballs[i].width, fireballs[i].height, ILI9341_CYAN);
+			fireballs[i].prev_x = fireballs[i].x;
+			fireballs[i].prev_y = fireballs[i].y;
 			ILI9341_DrawImage(fireballs[i].x, fireballs[i].y, fireballs[i].width, fireballs[i].height, fireball_final);
 		}
 	}
@@ -832,6 +838,58 @@ void draw_goomba() {
 	ILI9341_FillRectangle(prev_goomba.x, prev_goomba.y, prev_goomba.width, prev_goomba.height, ILI9341_CYAN);
 	ILI9341_DrawImage(goomba.x, goomba.y, goomba.width, goomba.height, goomba_final);
 
+}
+
+
+void draw_mario_fireball() {
+	static int8_t dir = -1;
+
+	if (dir == -1 && mario.x < prev_mario.x) {
+		dir = -5;
+	} else if (dir == -1 && mario.x >= prev_mario.x) {
+		dir = 5;
+	}
+	fireball.x += dir;
+	struct Character goomba_char = {goomba.x, goomba.y, goomba.width, goomba.height};
+	struct Character bowser_char = {bowser.x, bowser.y, bowser.width, bowser.height};
+	bool bowser_hit, goomba_hit;
+	if ((bowser_hit = collision_detection(bowser_char, fireball)) || (goomba_hit = collision_detection(goomba_char, fireball))) {
+		fireball.redraw = false;
+		dir = -1;
+		if (bowser_hit) {
+			bowser.health -= 5;
+			fireball.redraw = false;
+		}
+		if (goomba_hit) {
+			goomba.died = true;
+			fireball.redraw = false;
+		}
+	}
+
+	if (fireball.x < 0 || fireball.x > 303) {
+		fireball.redraw = false;
+		dir = -1;
+	}
+
+	static uint16_t* frame;
+	if (mario_fire_frame == 0) {
+		frame = mario_fire_1;
+	}
+	else if (mario_fire_frame == 1) {
+		frame = mario_fire_2;
+	}
+	else if (mario_fire_frame == 2) {
+		frame = mario_fire_3;
+	}
+	else if (mario_fire_frame == 3) {
+		frame = mario_fire_4;
+	}
+
+	cleanMarioBackground(frame, mario_fire_final, 16, 16, 16*16);
+	ILI9341_DrawImage(fireball.x, fireball.y, fireball.width, fireball.height, mario_fire_final);
+	mario_fire_frame++;
+	if (mario_fire_frame > 3)
+		mario_fire_frame = 0;
 }
 
 void drawScene(uint8_t map_num) {
@@ -1132,9 +1190,15 @@ int main(void)
 //			ILI9341_DrawImage(goomba.x, goomba.y, goomba.width, goomba.height, goomba_final);
 //		}
 
+		// draw mario fireballs
+		if (fireball.redraw) {
+			draw_mario_fireball();
+		}
 		prev_mario = mario;
 		mario.x_distance_between_frame = 0;
 		walk_tick = now;
+		static goomba_revive_timer = 0;
+		static bool reset = false;
 		char msg[32];
 		snprintf(msg, sizeof(msg), "Lives: %d", mario_lives);
 		ILI9341_WriteString(10, 10, msg, Font_11x18, ILI9341_BLACK, ILI9341_CYAN);
@@ -1142,12 +1206,23 @@ int main(void)
 		if (!goomba.died) {
 			draw_goomba();
 		} else {
-			ILI9341_FillRectangle(goomba.x, goomba.y, goomba.width, goomba.height, ILI9341_CYAN);
-			goomba.died = false;
-			prev_goomba = goomba;
-			goomba.x = 272;
-			goomba.y = 112;
+			// basically equals now
+			if (!reset) {
+				goomba_revive_timer = walk_tick;
+				reset = true;
+				ILI9341_FillRectangle(goomba.x, goomba.y, goomba.width, goomba.height, ILI9341_CYAN);
+			}
+			if (now - goomba_revive_timer >= 2000) {
+				goomba_revive_timer = now;
+				goomba.died = false;
+				prev_goomba = goomba;
+				goomba.x = 272;
+				goomba.y = 112;
+				reset = false;
+			}
 		}
+
+
 	}
 
 	frame_count++;
@@ -1169,6 +1244,7 @@ int main(void)
 //	}
 	// forward
 	if (now - read_pin_tick >= 50) {
+		read_pin_tick = now;
 		if (HAL_GPIO_ReadPin(RIGHT_BUTTON_GPIO_Port, RIGHT_BUTTON_Pin) == GPIO_PIN_SET) {
 			// Button is held down - move the character
 			mario.x_distance_between_frame += 3;
@@ -1189,7 +1265,15 @@ int main(void)
 		   }
 		   move_tick = now;
 		}
-		read_pin_tick = now;
+
+		if (HAL_GPIO_ReadPin(FIRE_BUTTON_GPIO_Port, FIRE_BUTTON_Pin) == GPIO_PIN_SET) {
+			if (!fireball.redraw) {
+				fireball.redraw = true;
+				fireball.x = mario.x + mario.width;
+				fireball.y = mario.y + 16;
+				mario_fire_frame = 0;
+			}
+		}
 	}
 
   }
@@ -1511,6 +1595,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(SD_Power_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : FIRE_BUTTON_Pin */
+  GPIO_InitStruct.Pin = FIRE_BUTTON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(FIRE_BUTTON_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 //  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
