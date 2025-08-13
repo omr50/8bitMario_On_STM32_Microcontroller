@@ -179,6 +179,7 @@ bool do_once = false;
 bool is_jumping = false;
 bool reset_jump_audio = false;
 uint32_t jump_timer;
+bool reset_game = false;
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim->Instance == TIM3) {
@@ -707,6 +708,22 @@ void draw_bowser() {
 	static bool bowser_dead = false;
 	static uint16_t fireball_final[48 * 16];
 	static int8_t flames = 3;
+	static const uint8_t bowser_max_health = 50;
+
+	if (reset_game) {
+		bowser_dead = false;
+		flames = 3;
+		bowser_last_moved = HAL_GetTick();
+		bowser_last_updated = bowser_last_moved;
+		flame_timer = bowser_last_moved;
+		mario_last_hit = flame_timer;
+
+		ILI9341_FillRectangle(198, 8, 2 * 50 + 4, 14, ILI9341_CYAN);
+		ILI9341_FillRectangle(198, 8, 2 * bowser_max_health + 4, 14, ILI9341_BLACK);
+		ILI9341_FillRectangle(199, 9, 2 * 50 + 2, 12, ILI9341_WHITE);
+		ILI9341_FillRectangle(200, 10, 2 * bowser.health, 10, ILI9341_RED);
+		return;
+	}
 
 	if (bowser_dead)
 		return;
@@ -800,7 +817,6 @@ void draw_bowser() {
 
 	static uint8_t bowser_health = 0;
 	struct Character goomba_char = {goomba.x, goomba.y, goomba.width, goomba.height};
-	static const uint8_t bowser_max_health = 50;
 	struct Object health_char = {198, 8, 0, 0, 2 * bowser_max_health + 4, 14};
 	static bool prev_collision = false;
 	bool current_collision = collision_detection(goomba_char, health_char) || collision_detection(mario, health_char);
@@ -960,6 +976,21 @@ void drawScene(uint8_t map_num) {
 	}
 }
 
+void reset_game_state() {
+	drawScene(1);
+	reset_game = true;
+	draw_bowser();
+	reset_game = false;
+	prev_mario = (struct Character){ 80, 176, 26, 32, 0, 0, 0, false };
+	mario = (struct Character){ 80, 176, 26, 32, 0, 0, 0, false };
+
+	prev_bowser = (struct Enemy){ 180, 144, 64, 64, 0, 0, 80, 200, 0, false, true};
+	bowser = (struct Enemy){ 180, 144, 64, 64, 0, 0, 80, 160, 200, 0, false, true, 50};
+
+	prev_goomba = (struct Enemy){ 180, 54, 32, 32, 0, 0, 80, 200, 0, false, false};
+	goomba = (struct Enemy){ 180, 64, 32, 32, 0, 0, 120, 160, 0, false, false };
+
+}
 
 
 //void fill_background(uint16_t img, uint16_t output, uint8_t width, uint8_t height) {
@@ -1112,8 +1143,15 @@ int main(void)
 			game_over = true;
 			ILI9341_FillScreen(ILI9341_BLACK);
 			ILI9341_WriteString(80, 100, "Game Over!", Font_16x26, ILI9341_WHITE, ILI9341_BLACK);
+
 		}
-		HAL_Delay(1000);
+
+		if (HAL_GPIO_ReadPin(JUMP_BUTTON_GPIO_Port, JUMP_BUTTON_Pin) == GPIO_PIN_SET) {
+				game_over = false;
+				mario_lives = 3;
+				reset_game_state();
+		}
+		HAL_Delay(100);
 		continue;
 	}
     if (mario.x < 0) mario.x = 0;
