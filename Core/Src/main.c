@@ -710,6 +710,7 @@ void draw_bowser() {
 	static int8_t flames = 3;
 	static const uint8_t bowser_max_health = 50;
 
+	// added reset check here
 	if (reset_game) {
 		bowser_dead = false;
 		flames = 3;
